@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SwimCoach">
+<meta name="theme-color" content="#000d1a">
+<title>SwimCoach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;900&family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #000d1a;
+    --bg2:      #001428;
+    --bg3:      #001f3d;
+    --cyan:     #00d4ff;
+    --cyan2:    #00ff88;
+    --amber:    #ffd700;
+    --red:      #ff3b3b;
+    --orange:   #ff6b35;
+    --text:     #e0eeff;
+    --muted:    #4a6a8a;
+    --border:   #0a2a4a;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bot: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── App shell ── */
+  #app { height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── Views ── */
+  .view { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+  .view.active { display: flex; }
+
+  /* ══════════════════════════════════════════════════
+     SETUP VIEW
+  ══════════════════════════════════════════════════ */
+  #setup {
+    align-items: center; justify-content: center;
+    padding: 32px 24px; padding-top: calc(var(--safe-top) + 32px);
+    background: radial-gradient(ellipse at 50% 0%, #003366 0%, var(--bg) 70%);
+  }
+
+  .logo-wrap { text-align: center; margin-bottom: 40px; }
+  .logo-icon {
+    font-size: 64px; display: block; margin-bottom: 8px;
+    filter: drop-shadow(0 0 20px rgba(0,212,255,0.5));
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .logo-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 48px; font-weight: 900; letter-spacing: 4px;
+    color: var(--cyan); line-height: 1;
+    text-shadow: 0 0 30px rgba(0,212,255,0.4);
+  }
+  .logo-sub {
+    font-size: 11px; letter-spacing: 3px; color: var(--muted);
+    text-transform: uppercase; margin-top: 6px;
+  }
+
+  .setup-card {
+    width: 100%; max-width: 400px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px;
+  }
+
+  .setup-label {
+    font-size: 10px; letter-spacing: 2px; color: var(--muted);
+    text-transform: uppercase; margin-bottom: 8px;
+  }
+
+  .setup-input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px; color: var(--text);
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    outline: none; transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .setup-input:focus { border-color: var(--cyan); }
+  .setup-input::placeholder { color: var(--muted); }
+
+  .key-hint {
+    font-size: 10px; color: var(--muted); margin-top: 6px; line-height: 1.5;
+  }
+  .key-hint a { color: var(--cyan); text-decoration: none; }
+
+  .stroke-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-top: 8px;
+  }
+  .stroke-btn {
+    padding: 12px 8px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg3);
+    color: var(--muted); font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px; font-weight: 600; letter-spacing: 1px;
+    cursor: pointer; transition: all 0.15s; text-align: center;
+  }
+  .stroke-btn.selected {
+    border-color: var(--cyan); background: rgba(0,212,255,0.1);
+    color: var(--cyan);
+  }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  .btn-primary {
+    width: 100%; padding: 16px;
+    background: var(--cyan); color: var(--bg);
+    border: none; border-radius: 10px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px; font-weight: 700; letter-spacing: 2px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+  .btn-primary:disabled { opacity: 0.4; cursor: default; }
+
+  /* ══════════════════════════════════════════════════
+     CAMERA VIEW
+  ══════════════════════════════════════════════════ */
+  #camera { position: relative; background: #000; overflow: hidden; }
+
+  #video {
+    width: 100%; height: 100%; object-fit: cover;
+    transform: scaleX(-1); /* mirror for selfie-style feel */
+  }
+
+  /* detection region indicator */
+  #detect-zone {
+    position: absolute; top: 8%; left: 10%; right: 10%; bottom: 8%;
+    border: 2px dashed rgba(0,212,255,0.3); border-radius: 8px;
+    pointer-events: none; transition: border-color 0.3s;
+  }
+  #detect-zone.active { border-color: rgba(0,255,136,0.6); border-style: solid; }
+  #detect-zone.recording { border-color: rgba(255,59,59,0.8); border-style: solid; }
+
+  /* corner markers */
+  #detect-zone::before, #detect-zone::after {
+    content: ''; position: absolute;
+    width: 20px; height: 20px;
+    border-color: var(--cyan); border-style: solid;
+  }
+  #detect-zone::before { top: -2px; left: -2px; border-width: 2px 0 0 2px; }
+  #detect-zone::after  { bottom: -2px; right: -2px; border-width: 0 2px 2px 0; }
+
+  /* top HUD */
+  #hud-top {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 12px 16px; padding-top: calc(var(--safe-top) + 12px);
+    background: linear-gradient(to bottom, rgba(0,13,26,0.95), transparent);
+    display: flex; align-items: center; gap: 12px; pointer-events: none;
+  }
+
+  .hud-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px; font-weight: 700; color: var(--cyan);
+    letter-spacing: 3px; pointer-events: auto; cursor: pointer;
+  }
+
+  #rec-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--muted); margin-left: auto;
+    transition: background 0.3s;
+  }
+  #rec-dot.monitoring { background: var(--cyan2); box-shadow: 0 0 8px var(--cyan2); }
+  #rec-dot.recording  { background: var(--red); box-shadow: 0 0 8px var(--red);
+    animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  #rec-label {
+    font-size: 10px; letter-spacing: 2px; color: var(--muted);
+    transition: color 0.3s;
+  }
+  #rec-label.monitoring { color: var(--cyan2); }
+  #rec-label.recording  { color: var(--red); }
+
+  /* phase badge */
+  #phase-badge {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px; font-weight: 700; letter-spacing: 3px;
+    color: var(--cyan); text-shadow: 0 0 20px rgba(0,212,255,0.6);
+    opacity: 0; transition: opacity 0.4s; pointer-events: none;
+    text-align: center;
+  }
+  #phase-badge.show { opacity: 1; }
+
+  /* live score strip */
+  #score-strip {
+    position: absolute; right: 0; top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0,13,26,0.85);
+    border-left: 1px solid var(--border);
+    padding: 16px 12px; display: flex;
+    flex-direction: column; gap: 14px; min-width: 80px;
+  }
+
+  .score-item { text-align: center; }
+  .score-label {
+    font-size: 8px; letter-spacing: 1.5px; color: var(--muted);
+    text-transform: uppercase; display: block; margin-bottom: 2px;
+  }
+  .score-val {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px; font-weight: 700; line-height: 1;
+    color: var(--text); transition: color 0.3s;
+  }
+  .score-bar {
+    height: 3px; background: var(--bg3); border-radius: 2px;
+    margin-top: 4px; overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%; border-radius: 2px;
+    background: var(--cyan); transition: width 0.4s;
+    width: 0%;
+  }
+
+  /* bottom controls */
+  #controls {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 16px; padding-bottom: calc(var(--safe-bot) + 16px);
+    background: linear-gradient(to top, rgba(0,13,26,0.95), transparent);
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .ctrl-btn {
+    flex: 1; padding: 14px 8px; border-radius: 10px;
+    border: 1px solid var(--border); background: rgba(0,20,40,0.8);
+    color: var(--muted); font-family: 'Barlow Condensed', sans-serif;
+    font-size: 15px; font-weight: 600; letter-spacing: 1px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .ctrl-btn:active { transform: scale(0.96); }
+  .ctrl-btn.active { border-color: var(--cyan2); color: var(--cyan2); }
+
+  #btn-analyze {
+    flex: 2; background: var(--red); color: #fff;
+    border-color: var(--red); font-size: 17px;
+  }
+  #btn-analyze:disabled { background: var(--bg3); border-color: var(--border); color: var(--muted); }
+  #btn-analyze.analyzing {
+    background: var(--amber); border-color: var(--amber); color: var(--bg);
+    animation: breathe 1.5s ease-in-out infinite;
+  }
+  @keyframes breathe { 0%,100%{opacity:1} 50%{opacity:0.7} }
+
+  /* swimmer flash overlay */
+  #swimmer-flash {
+    position: absolute; inset: 0; pointer-events: none;
+    border: 4px solid transparent; border-radius: 0;
+    transition: border-color 0.3s, opacity 0.5s;
+    opacity: 0;
+  }
+  #swimmer-flash.entered { border-color: var(--cyan2); opacity: 1; }
+  #swimmer-flash.left    { border-color: var(--amber);  opacity: 1; }
+
+  /* motion canvas overlay */
+  #motion-canvas {
+    position: absolute; inset: 0; pointer-events: none;
+    opacity: 0.4;
+  }
+
+  /* ══════════════════════════════════════════════════
+     RESULTS VIEW
+  ══════════════════════════════════════════════════ */
+  #results {
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(var(--safe-bot) + 80px);
+  }
+
+  .results-header {
+    padding: 20px 20px 16px;
+    padding-top: calc(var(--safe-top) + 20px);
+    background: linear-gradient(to bottom, var(--bg2), var(--bg));
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+
+  .results-top {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 12px;
+  }
+
+  .btn-back {
+    background: none; border: 1px solid var(--border);
+    color: var(--muted); padding: 8px 12px; border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    cursor: pointer;
+  }
+
+  .results-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px; font-weight: 700; color: var(--text);
+    letter-spacing: 2px;
+  }
+
+  .overall-score-big {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 72px; font-weight: 900; line-height: 1;
+    margin-left: auto;
+  }
+
+  .phase-pills {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+
+  .phase-pill {
+    font-size: 10px; letter-spacing: 1.5px; padding: 4px 10px;
+    border-radius: 20px; border: 1px solid; font-weight: 600;
+  }
+  .pill-fs { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,0.08); }
+  .pill-tt { border-color: var(--orange); color: var(--orange); background: rgba(255,107,53,0.08); }
+  .pill-pg { border-color: var(--cyan2); color: var(--cyan2); background: rgba(0,255,136,0.08); }
+
+  .section-head {
+    font-size: 10px; letter-spacing: 3px; color: var(--muted);
+    text-transform: uppercase; padding: 20px 20px 8px;
+  }
+
+  /* Technique card */
+  .tech-card {
+    margin: 0 12px 10px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; overflow: hidden;
+  }
+
+  .tech-card-header {
+    display: flex; align-items: center;
+    padding: 14px 16px; gap: 12px;
+    cursor: pointer; user-select: none;
+  }
+
+  .tech-skill-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px; font-weight: 600; letter-spacing: 1px;
+    flex: 1;
+  }
+
+  .tech-score-badge {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 26px; font-weight: 700; min-width: 56px;
+    text-align: right;
+  }
+
+  .tech-chevron {
+    color: var(--muted); font-size: 12px; transition: transform 0.25s;
+  }
+  .tech-card.expanded .tech-chevron { transform: rotate(180deg); }
+
+  .tech-body {
+    display: none; padding: 0 16px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .tech-card.expanded .tech-body { display: block; }
+
+  /* SVG diagram */
+  .diagram-wrap {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 1px; background: var(--border);
+    border-radius: 10px; overflow: hidden; margin: 14px 0;
+  }
+
+  .diagram-side {
+    background: var(--bg3); padding: 12px 8px;
+    text-align: center;
+  }
+
+  .diagram-label {
+    font-size: 9px; letter-spacing: 2px; font-weight: 700;
+    margin-bottom: 6px; display: block;
+  }
+  .diagram-label.good { color: var(--cyan2); }
+  .diagram-label.bad  { color: var(--red); }
+
+  .diagram-svg { width: 100%; max-width: 130px; }
+
+  .narrative-text {
+    font-size: 12px; line-height: 1.7; color: #8aaccc;
+    padding: 10px 0 0;
+  }
+
+  /* ══════════════════════════════════════════════════
+     HISTORY VIEW
+  ══════════════════════════════════════════════════ */
+  #history {
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(var(--safe-bot) + 80px);
+  }
+
+  .history-header {
+    padding: 20px 20px 16px;
+    padding-top: calc(var(--safe-top) + 20px);
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 10;
+  }
+
+  .history-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px; font-weight: 700; letter-spacing: 2px;
+  }
+
+  .history-count {
+    font-size: 11px; color: var(--muted); margin-left: auto;
+  }
+
+  .history-item {
+    margin: 8px 12px; border-radius: 12px;
+    background: var(--bg2); border: 1px solid var(--border);
+    overflow: hidden; cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .history-item:active { border-color: var(--cyan); }
+
+  .history-row {
+    display: flex; align-items: center;
+    padding: 14px 16px; gap: 12px;
+  }
+
+  .history-date {
+    flex: 1;
+  }
+  .history-date-main { font-size: 13px; color: var(--text); }
+  .history-date-sub  { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  .history-score {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 36px; font-weight: 700;
+  }
+
+  .history-badges {
+    display: flex; gap: 6px; padding: 0 16px 12px; flex-wrap: wrap;
+  }
+
+  .empty-state {
+    text-align: center; padding: 60px 24px;
+    color: var(--muted); font-size: 13px; line-height: 2;
+  }
+  .empty-icon { font-size: 48px; display: block; margin-bottom: 16px; opacity: 0.4; }
+
+  /* ── Bottom nav ── */
+  #nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: calc(60px + var(--safe-bot));
+    padding-bottom: var(--safe-bot);
+    background: rgba(0,13,26,0.95);
+    border-top: 1px solid var(--border);
+    display: flex; z-index: 100;
+  }
+
+  .nav-btn {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 4px;
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); transition: color 0.15s;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .nav-btn.active { color: var(--cyan); }
+  .nav-icon { font-size: 22px; }
+  .nav-label { font-size: 9px; letter-spacing: 1.5px; }
+
+  /* ── API key overlay ── */
+  #key-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #key-overlay.show { display: flex; }
+
+  .key-modal {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px; width: 100%; max-width: 380px;
+  }
+
+  .key-modal h3 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px; color: var(--cyan); margin-bottom: 16px; letter-spacing: 2px;
+  }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: calc(80px + var(--safe-bot)); left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--bg3); border: 1px solid var(--border);
+    padding: 10px 20px; border-radius: 20px;
+    font-size: 12px; color: var(--text); z-index: 300;
+    opacity: 0; transition: all 0.3s; pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Analyzing overlay ── */
+  #analyzing-overlay {
+    display: none; position: fixed; inset: 0; z-index: 150;
+    background: rgba(0,13,26,0.92); align-items: center; justify-content: center;
+    flex-direction: column; gap: 20px;
+  }
+  #analyzing-overlay.show { display: flex; }
+
+  .wave-loader {
+    display: flex; gap: 6px; align-items: flex-end; height: 40px;
+  }
+  .wave-bar {
+    width: 6px; background: var(--cyan); border-radius: 3px;
+    animation: wave 1.2s ease-in-out infinite;
+  }
+  .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+  .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+  .wave-bar:nth-child(4) { animation-delay: 0.3s; }
+  .wave-bar:nth-child(5) { animation-delay: 0.4s; }
+  @keyframes wave {
+    0%,100% { height: 8px; opacity: 0.4; }
+    50% { height: 36px; opacity: 1; }
+  }
+
+  .analyzing-text {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px; letter-spacing: 3px; color: var(--cyan);
+  }
+  .analyzing-sub { font-size: 11px; color: var(--muted); letter-spacing: 2px; }
+
+  /* score colors util */
+  .c-great { color: var(--cyan2); }
+  .c-good  { color: var(--amber); }
+  .c-ok    { color: var(--orange); }
+  .c-poor  { color: var(--red); }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ══════════ SETUP VIEW ══════════ -->
+  <div id="setup" class="view active">
+    <div class="logo-wrap">
+      <span class="logo-icon">🏊</span>
+      <div class="logo-title">SWIMCOACH</div>
+      <div class="logo-sub">AI Technique Analyser</div>
+    </div>
+
+    <div class="setup-card">
+      <div class="setup-label">Anthropic API Key</div>
+      <input type="password" id="api-key-input" class="setup-input"
+        placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
+      <div class="key-hint">
+        Get a free key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br>
+        Stored locally on your device only.
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="setup-label">Stroke</div>
+      <div class="stroke-grid">
+        <button class="stroke-btn selected" data-stroke="freestyle">FREESTYLE</button>
+        <button class="stroke-btn" data-stroke="backstroke">BACKSTROKE</button>
+        <button class="stroke-btn" data-stroke="breaststroke">BREASTSTROKE</button>
+        <button class="stroke-btn" data-stroke="butterfly">BUTTERFLY</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <button id="btn-start" class="btn-primary">START CAMERA</button>
+    </div>
+  </div>
+
+  <!-- ══════════ CAMERA VIEW ══════════ -->
+  <div id="camera" class="view">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="motion-canvas"></canvas>
+
+    <div id="detect-zone"></div>
+    <div id="swimmer-flash"></div>
+
+    <div id="hud-top">
+      <span class="hud-title" id="hud-title">SWIMCOACH</span>
+      <span id="rec-label" class="monitoring">MONITORING</span>
+      <span id="rec-dot" class="monitoring"></span>
+    </div>
+
+    <div id="phase-badge"></div>
+
+    <div id="score-strip">
+      <div class="score-item">
+        <span class="score-label">STROKE</span>
+        <span class="score-val" id="s-stroke">—</span>
+        <div class="score-bar"><div class="score-bar-fill" id="b-stroke"></div></div>
+      </div>
+      <div class="score-item">
+        <span class="score-label">TURN</span>
+        <span class="score-val" id="s-turn">—</span>
+        <div class="score-bar"><div class="score-bar-fill" id="b-turn"></div></div>
+      </div>
+      <div class="score-item">
+        <span class="score-label">GLIDE</span>
+        <span class="score-val" id="s-glide">—</span>
+        <div class="score-bar"><div class="score-bar-fill" id="b-glide"></div></div>
+      </div>
+      <div class="score-item" style="border-top:1px solid var(--border);padding-top:10px">
+        <span class="score-label">OVERALL</span>
+        <span class="score-val" id="s-overall" style="font-size:32px;color:var(--amber)">—</span>
+      </div>
+    </div>
+
+    <div id="controls">
+      <button class="ctrl-btn" id="btn-history-cam">📋 HISTORY</button>
+      <button class="ctrl-btn" id="btn-manual-analyze" id="btn-analyze">⚡ ANALYSE NOW</button>
+      <button class="ctrl-btn" id="btn-settings">⚙️ SETTINGS</button>
+    </div>
+  </div>
+
+  <!-- ══════════ RESULTS VIEW ══════════ -->
+  <div id="results" class="view">
+    <div class="results-header">
+      <div class="results-top">
+        <button class="btn-back" id="btn-results-back">← BACK</button>
+        <div class="results-title">SESSION</div>
+        <div class="overall-score-big" id="res-overall">—</div>
+      </div>
+      <div class="phase-pills" id="res-pills"></div>
+    </div>
+    <div id="res-cards"></div>
+  </div>
+
+  <!-- ══════════ HISTORY VIEW ══════════ -->
+  <div id="history" class="view">
+    <div class="history-header">
+      <button class="btn-back" id="btn-hist-back">← BACK</button>
+      <div class="history-title">HISTORY</div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <div class="history-count" id="hist-count"></div>
+        <button id="btn-export-csv" style="background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);
+          color:#00d4ff;padding:6px 10px;border-radius:6px;font-family:monospace;font-size:10px;
+          cursor:pointer;letter-spacing:1px">⬇ CSV</button>
+      </div>
+    </div>
+    <div id="hist-list"></div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- ── Bottom nav (hidden on setup) ── -->
+<div id="nav" style="display:none">
+  <button class="nav-btn active" id="nav-cam">
+    <span class="nav-icon">📷</span>
+    <span class="nav-label">CAMERA</span>
+  </button>
+  <button class="nav-btn" id="nav-hist">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">HISTORY</span>
+  </button>
+</div>
+
+<!-- ── API key overlay ── -->
+<div id="key-overlay">
+  <div class="key-modal">
+    <h3>API KEY</h3>
+    <div class="setup-label">Anthropic API Key</div>
+    <input type="password" id="overlay-key-input" class="setup-input"
+      placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
+    <div class="key-hint" style="margin-bottom:16px">
+      <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
+    </div>
+    <button class="btn-primary" id="btn-save-key">SAVE KEY</button>
+  </div>
+</div>
+
+<!-- ── Analyzing overlay ── -->
+<div id="analyzing-overlay">
+  <div class="wave-loader">
+    <div class="wave-bar"></div><div class="wave-bar"></div>
+    <div class="wave-bar"></div><div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+  </div>
+  <div class="analyzing-text">ANALYSING</div>
+  <div class="analyzing-sub">READING TECHNIQUE...</div>
+</div>
+
+<!-- ── Toast ── -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+const state = {
+  apiKey: localStorage.getItem('sc_api_key') || '',
+  stroke: localStorage.getItem('sc_stroke') || 'freestyle',
+  currentView: 'setup',
+  stream: null,
+  // Motion detection
+  motionCtx: null,
+  prevFrame: null,
+  motionHistory: [],
+  swimmerInFrame: false,
+  swimmerAbsentFrames: 0,
+  sessionActive: false,
+  sessionStartTime: null,
+  sessionFrames: [],          // captured frames during session
+  captureInterval: null,
+  motionInterval: null,
+  // Live scores
+  liveScores: { stroke: -1, turn: -1, glide: -1, overall: -1 },
+  // Sessions
+  sessions: JSON.parse(localStorage.getItem('sc_sessions') || '[]'),
+  currentResult: null,
+  // Auto-analyse throttle
+  lastAnalysis: 0,
+  analysing: false,
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// ROUTING
+// ═══════════════════════════════════════════════════════════════════
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(name).classList.add('active');
+  state.currentView = name;
+
+  const nav = document.getElementById('nav');
+  nav.style.display = (name === 'setup') ? 'none' : 'flex';
+
+  // Update nav active state
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  if (name === 'camera') document.getElementById('nav-cam').classList.add('active');
+  if (name === 'history') document.getElementById('nav-hist').classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SETUP
+// ═══════════════════════════════════════════════════════════════════
+const keyInput = document.getElementById('api-key-input');
+if (state.apiKey) keyInput.value = state.apiKey;
+
+// Stroke selector
+document.querySelectorAll('.stroke-btn').forEach(btn => {
+  if (btn.dataset.stroke === state.stroke) btn.classList.add('selected');
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.stroke-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    state.stroke = btn.dataset.stroke;
+    localStorage.setItem('sc_stroke', state.stroke);
+  });
+});
+
+document.getElementById('btn-start').addEventListener('click', async () => {
+  const key = keyInput.value.trim();
+  if (!key) { toast('Enter your API key first'); return; }
+  state.apiKey = key;
+  localStorage.setItem('sc_api_key', key);
+  await startCamera();
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// CAMERA
+// ═══════════════════════════════════════════════════════════════════
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 }, height: { ideal: 720 }
+      },
+      audio: false
+    });
+    state.stream = stream;
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+    await video.play();
+
+    // Setup motion canvas
+    const mc = document.getElementById('motion-canvas');
+    mc.width = video.videoWidth || 640;
+    mc.height = video.videoHeight || 480;
+    state.motionCtx = mc.getContext('2d', { willReadFrequently: true });
+
+    showView('camera');
+    startMotionDetection();
+    toast('Camera active — monitoring for swimmer');
+  } catch (e) {
+    toast('Camera access denied. Check browser permissions.');
+    console.error(e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MOTION DETECTION  (simple frame-diff swimmer presence)
+// ═══════════════════════════════════════════════════════════════════
+function startMotionDetection() {
+  const SAMPLE_RATE = 200;      // ms between motion checks
+  const MOTION_THRESHOLD = 18;  // pixel diff to count as motion
+  const MOTION_PIXELS_PCT = 3;  // % of sampled pixels that must differ
+  const ABSENT_FRAMES = 8;      // frames without motion = swimmer gone
+  const CAPTURE_INTERVAL = 2000;// ms between frame captures during session
+
+  state.motionInterval = setInterval(() => {
+    const video = document.getElementById('video');
+    if (!video || video.readyState < 2) return;
+
+    const ctx = state.motionCtx;
+    const W = 80, H = 60; // low-res sample
+    ctx.drawImage(video, 0, 0, W, H);
+    const frame = ctx.getImageData(0, 0, W, H).data;
+
+    if (!state.prevFrame) { state.prevFrame = frame.slice(); return; }
+
+    // Count pixels with significant luminance change
+    let diffCount = 0;
+    const total = W * H;
+    for (let i = 0; i < frame.length; i += 4) {
+      const dr = Math.abs(frame[i]   - state.prevFrame[i]);
+      const dg = Math.abs(frame[i+1] - state.prevFrame[i+1]);
+      const db = Math.abs(frame[i+2] - state.prevFrame[i+2]);
+      if ((dr + dg + db) / 3 > MOTION_THRESHOLD) diffCount++;
+    }
+    state.prevFrame = frame.slice();
+
+    const motionPct = (diffCount / total) * 100;
+    const hasMotion = motionPct > MOTION_PIXELS_PCT;
+
+    if (hasMotion) {
+      state.swimmerAbsentFrames = 0;
+      if (!state.swimmerInFrame) {
+        state.swimmerInFrame = true;
+        onSwimmerEntered();
+      }
+    } else {
+      if (state.swimmerInFrame) {
+        state.swimmerAbsentFrames++;
+        if (state.swimmerAbsentFrames >= ABSENT_FRAMES) {
+          state.swimmerInFrame = false;
+          state.swimmerAbsentFrames = 0;
+          onSwimmerLeft();
+        }
+      }
+    }
+  }, SAMPLE_RATE);
+}
+
+function onSwimmerEntered() {
+  setRecStatus('recording');
+  flashBorder('entered');
+  showPhaseBadge('SWIMMER DETECTED');
+  setDetectZone('recording');
+
+  // Start session
+  state.sessionActive = true;
+  state.sessionStartTime = Date.now();
+  state.sessionFrames = [];
+
+  // Capture frames periodically for analysis
+  state.captureInterval = setInterval(() => {
+    captureFrame();
+    // Auto-analyse periodically during session
+    const now = Date.now();
+    if (now - state.lastAnalysis > 8000 && !state.analysing && state.sessionFrames.length >= 1) {
+      runAnalysis(false); // silent = don't show overlay
+    }
+  }, 2500);
+
+  toast('Swimmer detected — session started');
+}
+
+function onSwimmerLeft() {
+  setRecStatus('monitoring');
+  flashBorder('left');
+  setDetectZone('');
+  clearInterval(state.captureInterval);
+
+  if (!state.sessionActive) return;
+  state.sessionActive = false;
+  const duration = Math.round((Date.now() - state.sessionStartTime) / 1000);
+
+  toast(`Swimmer left — ${duration}s session, analysing…`);
+
+  // Run final full analysis
+  if (state.sessionFrames.length > 0) {
+    runAnalysis(true); // show overlay
+  }
+}
+
+function captureFrame() {
+  const video = document.getElementById('video');
+  if (!video || video.readyState < 2) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = 640; canvas.height = 360;
+  canvas.getContext('2d').drawImage(video, 0, 0, 640, 360);
+  // Keep last 5 frames max (we'll send key frames to Claude)
+  if (state.sessionFrames.length >= 5) state.sessionFrames.shift();
+  state.sessionFrames.push(canvas.toDataURL('image/jpeg', 0.7));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CLAUDE API ANALYSIS
+// ═══════════════════════════════════════════════════════════════════
+async function runAnalysis(showOverlay = true) {
+  if (state.analysing || !state.apiKey) return;
+  if (state.sessionFrames.length === 0) {
+    // Capture one frame now if none
+    captureFrame();
+    if (state.sessionFrames.length === 0) { toast('No frames captured'); return; }
+  }
+
+  state.analysing = true;
+  state.lastAnalysis = Date.now();
+
+  if (showOverlay) {
+    document.getElementById('analyzing-overlay').classList.add('show');
+  }
+
+  // Pick up to 3 spread frames
+  const frames = pickFrames(state.sessionFrames, 3);
+
+  const systemPrompt = `You are an expert competitive swimming coach analysing ${state.stroke} technique.
+
+CRITICAL CAMERA POSITION: The camera is placed at the END OF THE LANE on the pool deck, pointing along the length of the lane. This means:
+- You see the swimmer coming TOWARD the camera (front-on / head-on view) as they approach
+- You see the tumble turn happening CLOSE to the camera (excellent view)
+- You see the swimmer pushing off and gliding AWAY from camera (rear view)
+- This is NOT a side-on view. Do not assess side-on skills like elbow catch.
+
+What you CAN assess well from this angle:
+- STROKE SYMMETRY: Are both arms pulling evenly left/right? Any dominant side?
+- HEAD POSITION: Is the head neutral and low, or raised/lifted?
+- KICK WIDTH: Are the feet kicking wide (inefficient) or narrow and fast?
+- STROKE RATE: Cadence visible as swimmer approaches
+- TURN TUCK: Excellent view — how tight is the tuck as they flip?
+- TURN ROTATION: Full inversion visible — do hips clear properly?
+- PUSH OFF STREAMLINE: As they glide away — are arms tight overhead, body arrow-straight?
+- UNDERWATER DEPTH: Are they gliding at good depth or surfacing too soon?
+- BODY ALIGNMENT: From front/rear, is the body straight or snaking left/right?
+
+Respond ONLY with valid JSON — no markdown, no explanation outside the JSON.
+
+Required JSON format:
+{
+  "strokeScore": 0-100,
+  "turnScore": 0-100,
+  "glideScore": 0-100,
+  "overallScore": 0-100,
+  "subSkills": {
+    "strokeSymmetry": 0-100,
+    "headPosition": 0-100,
+    "kickWidth": 0-100,
+    "tuckTightness": 0-100,
+    "turnInversion": 0-100,
+    "streamlineShape": 0-100,
+    "underwaterDepth": 0-100
+  },
+  "narrative": {
+    "stroke": "1-2 sentence coaching note on stroke approach and symmetry as seen head-on",
+    "turn": "1-2 sentence note on tuck and rotation quality (null if turn not visible)",
+    "glide": "1-2 sentence note on streamline and underwater phase (null if not visible)",
+    "topPriority": "The single most impactful fix, 1 sentence, direct and actionable"
+  },
+  "phasesObserved": ["freestyle", "tumbleTurn", "pushOff", "glide"]
+}
+
+Score 0-100: 85+ = elite, 70-84 = good, 55-69 = developing, below 55 = needs work.
+If a phase is not visible in frames, score it 0 and set narrative to null.
+Be specific and honest. Only score what you can actually see from this end-of-lane angle.`;
+
+  const userContent = [];
+  frames.forEach((f, i) => {
+    userContent.push({
+      type: 'image',
+      source: { type: 'base64', media_type: 'image/jpeg', data: f.split(',')[1] }
+    });
+    userContent.push({ type: 'text', text: `Frame ${i+1} of ${frames.length}` });
+  });
+  userContent.push({ type: 'text', text: `Stroke being analysed: ${state.stroke}. Provide technique analysis JSON.` });
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': state.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userContent }]
+      })
+    });
+
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message);
+
+    const rawText = data.content.map(b => b.text || '').join('');
+    const clean = rawText.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+
+    // Update live score strip
+    updateLiveScores(result);
+
+    // Save session
+    const session = buildSession(result);
+    state.sessions.unshift(session);
+    localStorage.setItem('sc_sessions', JSON.stringify(state.sessions.slice(0, 100)));
+
+    state.currentResult = session;
+    if (showOverlay) {
+      document.getElementById('analyzing-overlay').classList.remove('show');
+      renderResults(session);
+      showView('results');
+    }
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('analyzing-overlay').classList.remove('show');
+    toast('Analysis failed: ' + (e.message || 'Check API key'));
+  }
+
+  state.analysing = false;
+}
+
+function pickFrames(frames, n) {
+  if (frames.length <= n) return frames;
+  const step = Math.floor(frames.length / n);
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(frames[Math.min(i * step, frames.length - 1)]);
+  return out;
+}
+
+function buildSession(result) {
+  return {
+    id: Date.now(),
+    timestamp: new Date().toISOString(),
+    stroke: state.stroke,
+    strokeScore: result.strokeScore || 0,
+    turnScore: result.turnScore || 0,
+    glideScore: result.glideScore || 0,
+    overallScore: result.overallScore || 0,
+    subSkills: result.subSkills || {},
+    narrative: result.narrative || {},
+    phasesObserved: result.phasesObserved || []
+  };
+}
+
+function updateLiveScores(result) {
+  setScore('s-stroke', 'b-stroke', result.strokeScore);
+  setScore('s-turn',   'b-turn',   result.turnScore);
+  setScore('s-glide',  'b-glide',  result.glideScore);
+
+  const overall = result.overallScore || 0;
+  const el = document.getElementById('s-overall');
+  el.textContent = overall + '%';
+  el.className = 'score-val ' + scoreClass(overall);
+  el.style.fontSize = '32px';
+}
+
+function setScore(valId, barId, score) {
+  const el = document.getElementById(valId);
+  const bar = document.getElementById(barId);
+  if (score > 0) {
+    el.textContent = score + '%';
+    el.className = 'score-val ' + scoreClass(score);
+    bar.style.width = score + '%';
+    bar.style.background = scoreColor(score);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RESULTS RENDERING
+// ═══════════════════════════════════════════════════════════════════
+function renderResults(session) {
+  // Overall score
+  const overallEl = document.getElementById('res-overall');
+  overallEl.textContent = session.overallScore + '%';
+  overallEl.className = 'overall-score-big ' + scoreClass(session.overallScore);
+
+  // Phase pills
+  const pillsEl = document.getElementById('res-pills');
+  pillsEl.innerHTML = '';
+  if (session.strokeScore > 0) pillsEl.innerHTML += `<span class="phase-pill pill-fs">STROKE ${session.strokeScore}%</span>`;
+  if (session.turnScore > 0)   pillsEl.innerHTML += `<span class="phase-pill pill-tt">TURN ${session.turnScore}%</span>`;
+  if (session.glideScore > 0)  pillsEl.innerHTML += `<span class="phase-pill pill-pg">GLIDE ${session.glideScore}%</span>`;
+
+  // Cards
+  const cardsEl = document.getElementById('res-cards');
+  cardsEl.innerHTML = '';
+
+  // Priority note if present
+  if (session.narrative.topPriority) {
+    cardsEl.innerHTML += `
+      <div style="margin:12px;padding:14px 16px;background:rgba(255,215,0,0.08);
+        border:1px solid rgba(255,215,0,0.25);border-radius:12px;">
+        <div style="font-size:9px;letter-spacing:2px;color:var(--amber);margin-bottom:6px">
+          ⚡ TOP PRIORITY</div>
+        <div style="font-size:13px;line-height:1.6;color:var(--text)">
+          ${session.narrative.topPriority}</div>
+      </div>`;
+  }
+
+  const ss = session.subSkills || {};
+  const n = session.narrative || {};
+
+  // Stroke cards
+  if (session.strokeScore > 0) {
+    cardsEl.innerHTML += `<div class="section-head">STROKE — HEAD-ON VIEW</div>`;
+    cardsEl.innerHTML += makeTechCard('Stroke Symmetry', ss.strokeSymmetry, 'symmetry', n.stroke);
+    cardsEl.innerHTML += makeTechCard('Head Position', ss.headPosition, 'headpos', '');
+    cardsEl.innerHTML += makeTechCard('Kick Width', ss.kickWidth, 'kickwidth', '');
+  }
+
+  // Turn cards
+  if (session.turnScore > 0) {
+    cardsEl.innerHTML += `<div class="section-head">TUMBLE TURN — CLOSE VIEW</div>`;
+    cardsEl.innerHTML += makeTechCard('Tuck Tightness', ss.tuckTightness, 'tuck', n.turn);
+    cardsEl.innerHTML += makeTechCard('Turn Inversion', ss.turnInversion, 'inversion', '');
+  }
+
+  // Glide cards
+  if (session.glideScore > 0) {
+    cardsEl.innerHTML += `<div class="section-head">PUSH OFF / GLIDE — REAR VIEW</div>`;
+    cardsEl.innerHTML += makeTechCard('Streamline Shape', ss.streamlineShape, 'streamline', n.glide);
+    cardsEl.innerHTML += makeTechCard('Underwater Depth', ss.underwaterDepth, 'depth', '');
+  }
+
+  // Wire up expand/collapse
+  cardsEl.querySelectorAll('.tech-card').forEach(card => {
+    card.querySelector('.tech-card-header').addEventListener('click', () => {
+      card.classList.toggle('expanded');
+    });
+  });
+}
+
+function makeTechCard(name, score, skill, narrative) {
+  const scoreDisplay = (score != null && score > 0) ? score + '%' : '—';
+  const cls = (score != null && score > 0) ? scoreClass(score) : '';
+  return `
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <div class="tech-skill-name">${name}</div>
+        <div class="tech-score-badge ${cls}">${scoreDisplay}</div>
+        <span class="tech-chevron">▼</span>
+      </div>
+      <div class="tech-body">
+        <div class="diagram-wrap">
+          <div class="diagram-side">
+            <span class="diagram-label good">✓ GOOD</span>
+            ${getDiagramSVG(skill, 'good')}
+          </div>
+          <div class="diagram-side">
+            <span class="diagram-label bad">✗ BAD</span>
+            ${getDiagramSVG(skill, 'bad')}
+          </div>
+        </div>
+        ${narrative ? `<div class="narrative-text">${narrative}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SVG TECHNIQUE DIAGRAMS
+// ═══════════════════════════════════════════════════════════════════
+function getDiagramSVG(skill, variant) {
+  const g = variant === 'good';
+
+  const svgs = {
+
+    // ── STROKE SYMMETRY (head-on view) ──────────────────────────────
+    // GOOD: both arms equal width, shoulders level
+    // BAD:  one arm dominant, shoulder twist
+    symmetry: {
+      good: `<svg viewBox="0 0 120 110" class="diagram-svg">
+        <!-- head-on swimmer approaching -->
+        <circle cx="60" cy="18" r="11" fill="none" stroke="#00ff88" stroke-width="2.5"/>
+        <!-- body centre line -->
+        <line x1="60" y1="29" x2="60" y2="75" stroke="#00ff88" stroke-width="2.5"/>
+        <!-- EQUAL shoulders -->
+        <line x1="28" y1="42" x2="92" y2="42" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <!-- left arm pull - EQUAL to right -->
+        <line x1="28" y1="42" x2="16" y2="68" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <!-- right arm pull - EQUAL to left -->
+        <line x1="92" y1="42" x2="104" y2="68" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <!-- hips + legs -->
+        <line x1="42" y1="75" x2="78" y2="75" stroke="#00ff88" stroke-width="2.5"/>
+        <line x1="42" y1="75" x2="38" y2="100" stroke="#00ff88" stroke-width="2.5"/>
+        <line x1="78" y1="75" x2="82" y2="100" stroke="#00ff88" stroke-width="2.5"/>
+        <!-- symmetry arrows -->
+        <line x1="60" y1="6" x2="60" y2="100" stroke="#00ff88" stroke-width="1" stroke-dasharray="3,3" opacity="0.4"/>
+        <text x="60" y="108" text-anchor="middle" fill="#00ff88" font-size="8" opacity="0.7">BALANCED</text>
+      </svg>`,
+      bad: `<svg viewBox="0 0 120 110" class="diagram-svg">
+        <circle cx="60" cy="18" r="11" fill="none" stroke="#ff3b3b" stroke-width="2.5"/>
+        <line x1="60" y1="29" x2="60" y2="75" stroke="#ff3b3b" stroke-width="2.5"/>
+        <!-- UNEVEN shoulders - dominant right side -->
+        <line x1="32" y1="38" x2="92" y2="48" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <!-- dominant arm pulls wide -->
+        <line x1="92" y1="48" x2="112" y2="72" stroke="#ff3b3b" stroke-width="3.5" stroke-linecap="round"/>
+        <!-- weak arm barely pulls -->
+        <line x1="32" y1="38" x2="26" y2="55" stroke="#ff3b3b" stroke-width="2" stroke-linecap="round"/>
+        <line x1="42" y1="75" x2="78" y2="75" stroke="#ff3b3b" stroke-width="2.5"/>
+        <line x1="42" y1="75" x2="38" y2="100" stroke="#ff3b3b" stroke-width="2.5"/>
+        <line x1="78" y1="75" x2="82" y2="100" stroke="#ff3b3b" stroke-width="2.5"/>
+        <!-- cross on centre line -->
+        <line x1="52" y1="56" x2="68" y2="72" stroke="#ff3b3b" stroke-width="2" opacity="0.8"/>
+        <line x1="68" y1="56" x2="52" y2="72" stroke="#ff3b3b" stroke-width="2" opacity="0.8"/>
+        <text x="60" y="108" text-anchor="middle" fill="#ff3b3b" font-size="8" opacity="0.7">DOMINANT SIDE</text>
+      </svg>`
+    },
+
+    // ── HEAD POSITION (head-on view) ────────────────────────────────
+    // GOOD: head neutral, chin near water, eyes forward-down
+    // BAD:  head lifted, looking forward/up
+    headpos: {
+      good: `<svg viewBox="0 0 120 100" class="diagram-svg">
+        <!-- water surface -->
+        <path d="M5,48 Q20,43 35,48 Q50,53 65,48 Q80,43 95,48 Q110,53 120,48" fill="none" stroke="#00ff88" stroke-width="1.5" opacity="0.4"/>
+        <!-- head LOW, chin near surface — neutral -->
+        <circle cx="60" cy="42" r="13" fill="none" stroke="#00ff88" stroke-width="2.5"/>
+        <!-- eyes looking forward-down -->
+        <line x1="54" y1="40" x2="50" y2="44" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+        <line x1="66" y1="40" x2="70" y2="44" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+        <!-- neck/body submerged -->
+        <line x1="60" y1="55" x2="60" y2="78" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <!-- shoulders under water -->
+        <line x1="34" y1="64" x2="86" y2="64" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <!-- tick -->
+        <text x="60" y="95" text-anchor="middle" fill="#00ff88" font-size="8" opacity="0.7">NEUTRAL HEAD</text>
+      </svg>`,
+      bad: `<svg viewBox="0 0 120 100" class="diagram-svg">
+        <path d="M5,58 Q20,53 35,58 Q50,63 65,58 Q80,53 95,58 Q110,63 120,58" fill="none" stroke="#ff3b3b" stroke-width="1.5" opacity="0.4"/>
+        <!-- head HIGH, lifted above water -->
+        <circle cx="60" cy="32" r="13" fill="none" stroke="#ff3b3b" stroke-width="2.5"/>
+        <!-- eyes looking UP/forward -->
+        <line x1="54" y1="30" x2="50" y2="26" stroke="#ff3b3b" stroke-width="2" stroke-linecap="round"/>
+        <line x1="66" y1="30" x2="70" y2="26" stroke="#ff3b3b" stroke-width="2" stroke-linecap="round"/>
+        <!-- neck exposed above water -->
+        <line x1="60" y1="45" x2="60" y2="62" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="34" y1="68" x2="86" y2="68" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <!-- up arrow showing lifted head -->
+        <polygon points="60,18 54,28 66,28" fill="#ff3b3b"/>
+        <text x="60" y="95" text-anchor="middle" fill="#ff3b3b" font-size="8" opacity="0.7">HEAD LIFTED</text>
+      </svg>`
+    },
+
+    // ── KICK WIDTH (head-on view) ────────────────────────────────────
+    // GOOD: narrow kick, feet close together, compact
+    // BAD:  wide scissor kick, feet spread far apart
+    kickwidth: {
+      good: `<svg viewBox="0 0 120 110" class="diagram-svg">
+        <!-- body from front/below -->
+        <line x1="60" y1="10" x2="60" y2="55" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <!-- hips narrow -->
+        <line x1="46" y1="55" x2="74" y2="55" stroke="#00ff88" stroke-width="3"/>
+        <!-- NARROW kick — feet close together -->
+        <line x1="46" y1="55" x2="44" y2="90" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <line x1="74" y1="55" x2="76" y2="90" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <!-- feet close -->
+        <line x1="40" y1="90" x2="48" y2="90" stroke="#00ff88" stroke-width="3"/>
+        <line x1="72" y1="90" x2="80" y2="90" stroke="#00ff88" stroke-width="3"/>
+        <!-- narrow bracket -->
+        <line x1="44" y1="96" x2="76" y2="96" stroke="#00ff88" stroke-width="1.5" opacity="0.5"/>
+        <line x1="44" y1="92" x2="44" y2="100" stroke="#00ff88" stroke-width="1.5" opacity="0.5"/>
+        <line x1="76" y1="92" x2="76" y2="100" stroke="#00ff88" stroke-width="1.5" opacity="0.5"/>
+        <text x="60" y="108" text-anchor="middle" fill="#00ff88" font-size="8" opacity="0.7">NARROW ✓</text>
+      </svg>`,
+      bad: `<svg viewBox="0 0 120 110" class="diagram-svg">
+        <line x1="60" y1="10" x2="60" y2="55" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="46" y1="55" x2="74" y2="55" stroke="#ff3b3b" stroke-width="3"/>
+        <!-- WIDE scissor kick — feet far apart -->
+        <line x1="46" y1="55" x2="22" y2="90" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="74" y1="55" x2="98" y2="90" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="16" y1="90" x2="28" y2="90" stroke="#ff3b3b" stroke-width="3"/>
+        <line x1="92" y1="90" x2="104" y2="90" stroke="#ff3b3b" stroke-width="3"/>
+        <!-- wide bracket -->
+        <line x1="22" y1="96" x2="98" y2="96" stroke="#ff3b3b" stroke-width="1.5" opacity="0.5"/>
+        <line x1="22" y1="92" x2="22" y2="100" stroke="#ff3b3b" stroke-width="1.5" opacity="0.5"/>
+        <line x1="98" y1="92" x2="98" y2="100" stroke="#ff3b3b" stroke-width="1.5" opacity="0.5"/>
+        <text x="60" y="108" text-anchor="middle" fill="#ff3b3b" font-size="8" opacity="0.7">WIDE KICK ✗</text>
+      </svg>`
+    },
+
+    // ── TUCK TIGHTNESS (close end-of-lane view) ──────────────────────
+    tuck: {
+      good: `<svg viewBox="0 0 120 110" class="diagram-svg">
+        <circle cx="60" cy="88" r="10" fill="none" stroke="#00ff88" stroke-width="2.5"/>
+        <path d="M52,80 Q28,55 35,30 Q42,18 60,18 Q78,18 85,30 Q92,55 68,80" fill="none" stroke="#00ff88" stroke-width="3"/>
+        <line x1="40" y1="62" x2="52" y2="38" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <line x1="52" y1="38" x2="68" y2="44" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <line x1="80" y1="62" x2="68" y2="38" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <line x1="68" y1="38" x2="52" y2="44" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="60" cy="52" r="26" fill="none" stroke="#00ff88" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.5"/>
+        <text x="60" y="108" text-anchor="middle" fill="#00ff88" font-size="8" opacity="0.7">TIGHT TUCK</text>
+      </svg>`,
+      bad: `<svg viewBox="0 0 120 110" class="diagram-svg">
+        <circle cx="60" cy="88" r="10" fill="none" stroke="#ff3b3b" stroke-width="2.5"/>
+        <path d="M48,80 Q18,55 28,26 Q36,12 60,12 Q84,12 92,26 Q102,55 72,80" fill="none" stroke="#ff3b3b" stroke-width="3"/>
+        <line x1="36" y1="72" x2="28" y2="44" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="28" y1="44" x2="46" y2="52" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="84" y1="72" x2="92" y2="44" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="92" y1="44" x2="74" y2="52" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="60" cy="50" r="44" fill="none" stroke="#ff3b3b" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.5"/>
+        <text x="60" y="108" text-anchor="middle" fill="#ff3b3b" font-size="8" opacity="0.7">OPEN TUCK</text>
+      </svg>`
+    },
+
+    // ── TURN INVERSION (end-of-lane, close view) ─────────────────────
+    inversion: {
+      good: `<svg viewBox="0 0 120 110" class="diagram-svg">
+        <circle cx="60" cy="92" r="10" fill="none" stroke="#00ff88" stroke-width="2.5"/>
+        <line x1="60" y1="82" x2="60" y2="44" stroke="#00ff88" stroke-width="2.5"/>
+        <line x1="40" y1="44" x2="80" y2="44" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <line x1="46" y1="44" x2="42" y2="12" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="74" y1="44" x2="78" y2="12" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="40" y1="70" x2="80" y2="70" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+        <polygon points="60,6 54,16 66,16" fill="#00ff88"/>
+        <text x="60" y="108" text-anchor="middle" fill="#00ff88" font-size="8" opacity="0.7">FULL INVERSION</text>
+      </svg>`,
+      bad: `<svg viewBox="0 0 120 110" class="diagram-svg">
+        <circle cx="60" cy="56" r="10" fill="none" stroke="#ff3b3b" stroke-width="2.5"/>
+        <line x1="60" y1="66" x2="60" y2="92" stroke="#ff3b3b" stroke-width="2.5"/>
+        <line x1="38" y1="92" x2="82" y2="92" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="38" y1="72" x2="82" y2="72" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="44" y1="92" x2="32" y2="62" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="76" y1="92" x2="88" y2="62" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="50" y1="24" x2="70" y2="44" stroke="#ff3b3b" stroke-width="2.5" opacity="0.8"/>
+        <line x1="70" y1="24" x2="50" y2="44" stroke="#ff3b3b" stroke-width="2.5" opacity="0.8"/>
+        <text x="60" y="108" text-anchor="middle" fill="#ff3b3b" font-size="8" opacity="0.7">INCOMPLETE</text>
+      </svg>`
+    },
+
+    // ── STREAMLINE SHAPE (rear view — swimmer gliding away) ──────────
+    streamline: {
+      good: `<svg viewBox="0 0 120 100" class="diagram-svg">
+        <!-- rear view: swimmer going away from camera -->
+        <!-- water surface -->
+        <path d="M5,35 Q20,30 35,35 Q50,40 65,35 Q80,30 95,35 Q110,40 120,35" fill="none" stroke="#00ff88" stroke-width="1.5" opacity="0.4"/>
+        <!-- narrow silhouette — arrow shape pointing away -->
+        <!-- feet/ankles at bottom (closest to camera) -->
+        <line x1="52" y1="90" x2="68" y2="90" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <!-- legs converging -->
+        <line x1="52" y1="90" x2="56" y2="60" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <line x1="68" y1="90" x2="64" y2="60" stroke="#00ff88" stroke-width="3" stroke-linecap="round"/>
+        <!-- hips -->
+        <line x1="52" y1="60" x2="68" y2="60" stroke="#00ff88" stroke-width="2.5"/>
+        <!-- torso narrowing -->
+        <line x1="52" y1="60" x2="54" y2="38" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="68" y1="60" x2="66" y2="38" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- shoulders -->
+        <line x1="48" y1="38" x2="72" y2="38" stroke="#00ff88" stroke-width="2.5"/>
+        <!-- arms tight overhead — narrow point -->
+        <line x1="48" y1="38" x2="57" y2="14" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="72" y1="38" x2="63" y2="14" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="57" y1="14" x2="63" y2="14" stroke="#00ff88" stroke-width="2.5"/>
+        <text x="60" y="100" text-anchor="middle" fill="#00ff88" font-size="8" opacity="0.7">ARROW SHAPE</text>
+      </svg>`,
+      bad: `<svg viewBox="0 0 120 100" class="diagram-svg">
+        <path d="M5,35 Q20,30 35,35 Q50,40 65,35 Q80,30 95,35 Q110,40 120,35" fill="none" stroke="#ff3b3b" stroke-width="1.5" opacity="0.4"/>
+        <!-- feet wide apart -->
+        <line x1="44" y1="90" x2="58" y2="90" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="62" y1="90" x2="76" y2="90" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <!-- legs apart -->
+        <line x1="50" y1="90" x2="48" y2="60" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="70" y1="90" x2="72" y2="60" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="44" y1="60" x2="76" y2="60" stroke="#ff3b3b" stroke-width="2.5"/>
+        <line x1="44" y1="60" x2="40" y2="38" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="76" y1="60" x2="80" y2="38" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- shoulders WIDE -->
+        <line x1="36" y1="38" x2="84" y2="38" stroke="#ff3b3b" stroke-width="3"/>
+        <!-- arms spread wide — not overhead -->
+        <line x1="36" y1="38" x2="22" y2="20" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="84" y1="38" x2="98" y2="20" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- wide bracket at top -->
+        <line x1="20" y1="16" x2="100" y2="16" stroke="#ff3b3b" stroke-width="1.5" opacity="0.5"/>
+        <text x="60" y="100" text-anchor="middle" fill="#ff3b3b" font-size="8" opacity="0.7">WIDE / DRAGGY</text>
+      </svg>`
+    },
+
+    // ── UNDERWATER DEPTH (rear view — swimmer gliding away) ──────────
+    depth: {
+      good: `<svg viewBox="0 0 120 100" class="diagram-svg">
+        <!-- water surface clearly above swimmer -->
+        <path d="M5,28 Q20,23 35,28 Q50,33 65,28 Q80,23 95,28 Q110,33 120,28" fill="none" stroke="#00ff88" stroke-width="2" opacity="0.6"/>
+        <text x="8" y="24" fill="#00ff88" font-size="7" opacity="0.5">SURFACE</text>
+        <!-- swimmer deep underwater — small silhouette far from surface -->
+        <line x1="52" y1="82" x2="68" y2="82" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="52" y1="82" x2="55" y2="62" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="68" y1="82" x2="65" y2="62" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="50" y1="62" x2="70" y2="62" stroke="#00ff88" stroke-width="2"/>
+        <line x1="50" y1="62" x2="53" y2="48" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+        <line x1="70" y1="62" x2="67" y2="48" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+        <line x1="53" y1="48" x2="67" y2="48" stroke="#00ff88" stroke-width="2"/>
+        <!-- depth arrow -->
+        <line x1="20" y1="28" x2="20" y2="65" stroke="#00ff88" stroke-width="1.5" stroke-dasharray="3,2" opacity="0.6"/>
+        <polygon points="20,70 15,60 25,60" fill="#00ff88" opacity="0.7"/>
+        <text x="60" y="97" text-anchor="middle" fill="#00ff88" font-size="8" opacity="0.7">GOOD DEPTH</text>
+      </svg>`,
+      bad: `<svg viewBox="0 0 120 100" class="diagram-svg">
+        <path d="M5,28 Q20,23 35,28 Q50,33 65,28 Q80,23 95,28 Q110,33 120,28" fill="none" stroke="#ff3b3b" stroke-width="2" opacity="0.6"/>
+        <text x="8" y="24" fill="#ff3b3b" font-size="7" opacity="0.5">SURFACE</text>
+        <!-- swimmer barely underwater — large silhouette near surface -->
+        <line x1="48" y1="55" x2="72" y2="55" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="48" y1="55" x2="44" y2="38" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="72" y1="55" x2="76" y2="38" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+        <line x1="40" y1="38" x2="80" y2="38" stroke="#ff3b3b" stroke-width="2.5"/>
+        <line x1="40" y1="38" x2="48" y2="22" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="80" y1="38" x2="72" y2="22" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- body breaking through surface - close to line -->
+        <line x1="44" y1="30" x2="76" y2="30" stroke="#ff3b3b" stroke-width="1" stroke-dasharray="4,2" opacity="0.5"/>
+        <!-- up arrow - surfacing too soon -->
+        <polygon points="60,16 54,28 66,28" fill="#ff3b3b" opacity="0.8"/>
+        <text x="60" y="97" text-anchor="middle" fill="#ff3b3b" font-size="8" opacity="0.7">SURFACING EARLY</text>
+      </svg>`
+    }
+  };
+
+  const s = svgs[skill];
+  if (!s) return '<svg viewBox="0 0 120 80" class="diagram-svg"></svg>';
+  return s[variant] || s.good;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════════════════════════════════
+function exportCSV() {
+  if (state.sessions.length === 0) { toast('No sessions to export'); return; }
+  const headers = [
+    'Date','Time','Stroke','Overall%','Stroke%','Turn%','Glide%',
+    'StrokeSymmetry','HeadPosition','KickWidth','TuckTightness',
+    'TurnInversion','StreamlineShape','UnderwaterDepth',
+    'TopPriority','StrokeNote','TurnNote','GlideNote'
+  ];
+  const rows = state.sessions.map(s => {
+    const d = new Date(s.timestamp);
+    const ss = s.subSkills || {};
+    const n = s.narrative || {};
+    return [
+      d.toLocaleDateString(),
+      d.toLocaleTimeString(),
+      s.stroke,
+      s.overallScore,
+      s.strokeScore,
+      s.turnScore,
+      s.glideScore,
+      ss.strokeSymmetry || '',
+      ss.headPosition || '',
+      ss.kickWidth || '',
+      ss.tuckTightness || '',
+      ss.turnInversion || '',
+      ss.streamlineShape || '',
+      ss.underwaterDepth || '',
+      (n.topPriority || '').replace(/,/g, ';'),
+      (n.stroke || '').replace(/,/g, ';'),
+      (n.turn || '').replace(/,/g, ';'),
+      (n.glide || '').replace(/,/g, ';'),
+    ].join(',');
+  });
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'swimcoach-sessions-' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV downloaded!');
+}
+
+function renderHistory() {
+  const list = document.getElementById('hist-list');
+  const count = document.getElementById('hist-count');
+  count.textContent = state.sessions.length + ' sessions';
+
+  if (state.sessions.length === 0) {
+    list.innerHTML = `<div class="empty-state">
+      <span class="empty-icon">🏊</span>
+      No sessions yet.<br>Start the camera and swim!
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = state.sessions.map(s => {
+    const d = new Date(s.timestamp);
+    const dateStr = d.toLocaleDateString('en', {weekday:'short', day:'numeric', month:'short'});
+    const timeStr = d.toLocaleTimeString('en', {hour:'2-digit', minute:'2-digit'});
+    const clr = scoreClass(s.overallScore);
+    return `
+      <div class="history-item" data-id="${s.id}">
+        <div class="history-row">
+          <div class="history-date">
+            <div class="history-date-main">${dateStr}</div>
+            <div class="history-date-sub">${timeStr} · ${s.stroke.toUpperCase()}</div>
+          </div>
+          <div class="history-score ${clr}">${s.overallScore}%</div>
+        </div>
+        <div class="history-badges">
+          ${s.strokeScore > 0 ? `<span class="phase-pill pill-fs">STROKE ${s.strokeScore}%</span>` : ''}
+          ${s.turnScore > 0   ? `<span class="phase-pill pill-tt">TURN ${s.turnScore}%</span>` : ''}
+          ${s.glideScore > 0  ? `<span class="phase-pill pill-pg">GLIDE ${s.glideScore}%</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  list.querySelectorAll('.history-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const id = parseInt(item.dataset.id);
+      const session = state.sessions.find(s => s.id === id);
+      if (session) {
+        state.currentResult = session;
+        renderResults(session);
+        showView('results');
+      }
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function setRecStatus(mode) {
+  const dot = document.getElementById('rec-dot');
+  const lbl = document.getElementById('rec-label');
+  dot.className = mode; lbl.className = mode;
+  lbl.textContent = mode === 'recording' ? 'RECORDING' : 'MONITORING';
+}
+
+function setDetectZone(cls) {
+  document.getElementById('detect-zone').className = cls;
+}
+
+function showPhaseBadge(text) {
+  const el = document.getElementById('phase-badge');
+  el.textContent = text; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function flashBorder(type) {
+  const el = document.getElementById('swimmer-flash');
+  el.classList.add(type);
+  setTimeout(() => el.classList.remove(type), 800);
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function scoreClass(s) {
+  if (s >= 80) return 'c-great';
+  if (s >= 65) return 'c-good';
+  if (s >= 50) return 'c-ok';
+  return 'c-poor';
+}
+
+function scoreColor(s) {
+  if (s >= 80) return '#00ff88';
+  if (s >= 65) return '#ffd700';
+  if (s >= 50) return '#ff6b35';
+  return '#ff3b3b';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BUTTON WIRING
+// ═══════════════════════════════════════════════════════════════════
+
+// Manual analyse
+document.getElementById('btn-manual-analyze').addEventListener('click', async () => {
+  if (state.analysing) return;
+  captureFrame();
+  await runAnalysis(true);
+});
+
+// History from camera
+document.getElementById('btn-history-cam').addEventListener('click', () => {
+  renderHistory(); showView('history');
+});
+
+// Settings
+document.getElementById('btn-settings').addEventListener('click', () => {
+  document.getElementById('overlay-key-input').value = state.apiKey;
+  document.getElementById('key-overlay').classList.add('show');
+});
+
+// Save key from overlay
+document.getElementById('btn-save-key').addEventListener('click', () => {
+  const key = document.getElementById('overlay-key-input').value.trim();
+  if (!key) return;
+  state.apiKey = key;
+  localStorage.setItem('sc_api_key', key);
+  document.getElementById('key-overlay').classList.remove('show');
+  toast('API key saved');
+});
+
+// Close overlay on backdrop click
+document.getElementById('key-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('key-overlay'))
+    document.getElementById('key-overlay').classList.remove('show');
+});
+
+// Results back
+document.getElementById('btn-results-back').addEventListener('click', () => {
+  // Go back to wherever we came from
+  if (state.stream) showView('camera');
+  else showView('history');
+});
+
+// History back
+document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
+
+document.getElementById('btn-hist-back').addEventListener('click', () => {
+  if (state.stream) showView('camera');
+  else showView('setup');
+});
+
+// Nav
+document.getElementById('nav-cam').addEventListener('click', () => showView('camera'));
+document.getElementById('nav-hist').addEventListener('click', () => { renderHistory(); showView('history'); });
+
+// HUD title → back to setup
+document.getElementById('hud-title').addEventListener('click', () => {
+  if (confirm('Stop session and return to setup?')) {
+    clearInterval(state.captureInterval);
+    clearInterval(state.motionInterval);
+    if (state.stream) state.stream.getTracks().forEach(t => t.stop());
+    state.stream = null;
+    showView('setup');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// PWA INSTALL PROMPT
+// ═══════════════════════════════════════════════════════════════════
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  setTimeout(() => toast('📲 Tap ⋮ → Add to Home Screen to install'), 4000);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
+// If key already saved, skip setup
+if (state.apiKey) {
+  keyInput.value = state.apiKey;
+}
+
+// Keep screen awake during camera use (Wake Lock API)
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      await navigator.wakeLock.request('screen');
+    }
+  } catch(e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && state.stream) requestWakeLock();
+});
+</script>
+</body>
+</html>
